@@ -3,10 +3,19 @@
 START=17
 
 start() {
-    OLDMAC=$(uci get network.wan.macaddr)
+    if [ -n "$(uci get network.wan.device 2> /dev/null)" ]; then
+        # openwrt/openwrt
+        OLDMAC="$(uci get network.wan.macaddr)"
+        NETWORK_WAN_MACADDR="network.wan.macaddr"
+    else
+        # coolsnowwolf/lede
+        NETWORK_WAN_DEVICE="$(uci get network.wan.ifname | sed 's/\./_/')"
+        OLDMAC="$(uci get network.wan_"${NETWORK_WAN_DEVICE}"_dev.macaddr)"
+        NETWORK_WAN_MACADDR="network.wan_${NETWORK_WAN_DEVICE}_dev.macaddr"
+    fi
     logger "[WAN-MAC] Old WAN MAC address is ${OLDMAC} ."
-    NEWMAC=$(dd if=/dev/urandom bs=1024 count=1 2>/dev/null | md5sum | sed -e 's/^\(..\)\(..\)\(..\)\(..\)\(..\)\(..\).*$/\1:\2:\3:\4:\5:\6/' -e 's/^\(.\)[13579bdf]/\10/')
+    NEWMAC="$(dd if=/dev/urandom bs=1024 count=1 2>/dev/null | md5sum | sed -e 's/^\(..\)\(..\)\(..\)\(..\)\(..\)\(..\).*$/\1:\2:\3:\4:\5:\6/' -e 's/^\(.\)[13579bdf]/\10/')"
     logger "[WAN-MAC] Applying new random MAC address to WAN (${NEWMAC}) ..."
-    uci set network.wan.macaddr=${NEWMAC}
+    uci set "${NETWORK_WAN_MACADDR}"="${NEWMAC}"
     uci commit network
 }
